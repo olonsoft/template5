@@ -40,11 +40,11 @@ void DS18B20Handler::loop() {
   uint32_t now = millis();
 
     // Do not start new periodic reads once sleep is requested
-  if (_sleepRequested && _state == ReadState::IDLE) return;
+  // if (_sleepRequested && _state == ReadState::IDLE) return;
 
   switch (_state) {
     case ReadState::IDLE:
-      if (!_sleepRequested && (_lastRead == 0 || now - _lastRead >= _interval)) {
+      if (_lastRead == 0 || now - _lastRead >= _interval) {
         _lastRead = now;
         startConversion(ReadState::PERIODIC_WAITING);
       }
@@ -60,7 +60,6 @@ void DS18B20Handler::loop() {
 }
 
 void DS18B20Handler::onSleep() {
-  _sleepRequested = true;
 
   uint32_t now = millis();
 
@@ -72,7 +71,7 @@ void DS18B20Handler::onSleep() {
 
     // If last read is fresh, skip final read
   if (_state == ReadState::IDLE && isRecent(now)) {
-    olog.debug(TAG, "Sleep — last reading is fresh, skipping final read");
+    olog.warn(TAG, "Sleep — last reading is fresh, skipping final read");
     return;
   }
 
@@ -90,7 +89,7 @@ bool DS18B20Handler::isSleepDone() const {
 }
 
 bool DS18B20Handler::isRecent(uint32_t now) const {
-  return _lastRead != 0 && (now - _lastRead) < 2000;
+  return _lastRead != 0 && (now - _lastRead) < _interval;
 }
 
 void DS18B20Handler::startConversion(ReadState nextState) {
@@ -110,15 +109,20 @@ void DS18B20Handler::startConversion(ReadState nextState) {
 }
 
 void DS18B20Handler::finishConversion() {
-  bool isPeriodic = (_state == ReadState::PERIODIC_WAITING);
-
   JsonDocument doc;
   bool anyValid = false;
 
   for (const auto& sensor : _found) {
     float temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
 
-    if (!isValidReading(temp)) continue;
+    if (!isValidReading(temp)) {
+      char msg[32];
+      snprintf(msg, sizeof(msg), "Bad reading from %s", sensor.shortId.c_str());
+      AppError err{ TAG, msg };
+      olog.warn(TAG, "Skipping %s — bad reading (%.1f)", sensor.shortId.c_str(), temp);
+      _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
+      continue;
+    }
 
     float rounded = roundf(temp * 100.0f) / 100.0f;
     doc[sensor.fullId] = rounded;
@@ -127,22 +131,20 @@ void DS18B20Handler::finishConversion() {
     olog.info(TAG, "%s → %.2f%s", sensor.shortId.c_str(), rounded, DS18B20Config::USE_CELSIUS ? "°C" : "°F");
   }
 
-  _state = ReadState::IDLE;
-  _lastRead = millis();
-
-  if (anyValid)
+  if (anyValid) {
     _ha.publishJson("temperatures", doc, false);
-  else
+  } else {
     olog.warn(TAG, "No valid readings — skipping publish");
-
-    // DS18B20-triggered sleep
-  if (isPeriodic && _sleepAfterRead && anyValid && !_sleepRequested) {
-    olog.info(TAG, "Read complete — triggering sleep");
-    _sleepRequested = true;
-    SleepRequest req(_sleepDurationUs);
-    _eventBus.publish(EventType::APP_SYSTEM_SLEEP_PREPARING, &req);
   }
+
+  _state = ReadState::IDLE;
+
+  if (_readCompleteCallback) {
+      _readCompleteCallback(anyValid, _found.size());
+  }
+
 }
+
 
 void DS18B20Handler::scanBus() {
   _found.clear();

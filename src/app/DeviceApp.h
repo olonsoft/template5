@@ -25,5 +25,5 @@ private:
     RelayHandler  _relay;
     // SensorHandler _sensor;
     SleepableSensorHandler _sleepableSensor;
-    DS18B20Handler _tempSensors;
+    DS18B20Handler _ds18b20;
 };

@@ -23,19 +23,25 @@ DeviceConfig::DeviceConfig() : configManager(eventBus, deviceConfig) {}
 
 DeviceApp::DeviceApp()
     : DeviceConfig()       // constructed first
-      , App(DeviceConfig::eventBus, DeviceConfig::configManager)      // safe — already constructed
-      , _relay(DeviceConfig::eventBus, App::_ha, DeviceDefaults::RELAY_PIN)
+      ,
+      App(DeviceConfig::eventBus, DeviceConfig::configManager)      // safe — already constructed
+      ,
+      _relay(DeviceConfig::eventBus, App::_ha, DeviceDefaults::RELAY_PIN)
       // , _sensor(DeviceConfig::eventBus, App::_ha, DeviceDefaults::SENSOR_PIN)
-      , _sleepableSensor(DeviceConfig::eventBus, App::_ha, App::_sleep, DeviceDefaults::SENSOR_PIN)
-      , _tempSensors(DeviceConfig::eventBus, App::_ha, App::_sleep, DeviceDefaults::ONE_WIRE_PIN)
+      ,
+      _sleepableSensor(DeviceConfig::eventBus, App::_ha, App::_sleep, DeviceDefaults::SENSOR_PIN),
+      _ds18b20(DeviceConfig::eventBus, App::_ha, App::_sleep, DeviceDefaults::ONE_WIRE_PIN)
 
 {}
 void DeviceApp::begin() {
   addHandler(_relay);
     // addHandler(_sensor);
   addHandler(_sleepableSensor);
-  addHandler(_tempSensors);
+  addHandler(_ds18b20);
   App::begin();
-  // Wake, read all sensors, publish, sleep 1 minutes
-  _tempSensors.setSleepAfterRead(DeviceDefaults::SLEEP_DURATION_US);
+
+  // when temperature read is complete (periodic or sleep-triggered), we can decide to go to sleep immediately
+  _ds18b20.setReadCompleteCallback([this](bool success, size_t sensorCount) {
+    _eventBus.publish(EventType::APP_SYSTEM_SLEEP_PREPARING, nullptr);
+  });
 }

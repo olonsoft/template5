@@ -19,6 +19,8 @@ namespace DS18B20Config {
   constexpr uint8_t MAX_SENSORS = 10;
 } // namespace DS18B20Config
 
+using ReadCompleteCallback = std::function<void(bool success, size_t sensorCount)>;
+
 class DS18B20Handler : public AppHandler, public ISleepable {
  public:
   DS18B20Handler(EventBus& bus, ManageHa& ha, ManageSleep& sleep, uint8_t pin,
@@ -29,11 +31,7 @@ class DS18B20Handler : public AppHandler, public ISleepable {
 
   void onSleep() override;
   bool isSleepDone() const override;
-
-  void setSleepAfterRead(uint64_t durationUs = 0) {
-    _sleepAfterRead = true;
-    _sleepDurationUs = durationUs;
-  }
+  void setReadCompleteCallback(ReadCompleteCallback cb) { _readCompleteCallback = cb; }
 
  private:
   struct Sensor {
@@ -66,15 +64,12 @@ class DS18B20Handler : public AppHandler, public ISleepable {
 
   std::vector<Sensor> _found;
 
-  uint32_t _interval;
+  ReadCompleteCallback _readCompleteCallback = nullptr;
+    uint32_t _interval;
   uint32_t _lastRead = 0;
   bool _mqttReady = false;
 
   ReadState _state = ReadState::IDLE;
   uint32_t _conversionStart = 0;
   uint16_t _conversionTime = 750;
-
-  bool _sleepRequested = false;
-  bool _sleepAfterRead = false;
-  uint64_t _sleepDurationUs = 0;
 };
