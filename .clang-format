@@ -12,9 +12,9 @@ AlignTrailingComments:
   Kind: Leave
 AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortEnumsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLambdasOnASingleLine: Empty
 AllowShortLoopsOnASingleLine: false
 BinPackArguments: false
@@ -24,6 +24,7 @@ Cpp11BracedListStyle: false
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
 LambdaBodyIndentation: OuterScope
+NamespaceIndentation: All
 ReflowComments: Never
 SpacesBeforeTrailingComments: 1
 TabWidth: 2

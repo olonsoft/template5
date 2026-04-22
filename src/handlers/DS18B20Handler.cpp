@@ -9,11 +9,11 @@ const char* const TAG = "DS18B20";
 // ─────────────────────────────────────────────
 // Constructor
 // ─────────────────────────────────────────────
-DS18B20Handler::DS18B20Handler(EventBus& bus, ManageHa& ha, uint8_t pin, uint32_t interval)
-    : _eventBus(bus), _ha(ha), _oneWire(pin), _sensors(&_oneWire), _interval(interval) {
+DS18B20Handler::DS18B20Handler(EventBus& bus, ManageHa& ha, ManageSleep& sleep, uint8_t pin, uint32_t interval)
+    : _eventBus(bus), _ha(ha), _sleep(sleep), _oneWire(pin), _sensors(&_oneWire), _interval(interval) {
   _eventBus.subscribe(EventType::APP_MQTT_CLIENT_CONNECTED, [this](EventType, const void*) {
     _mqttReady = true;
-    readAndPublish();   // immediate reading on every connect
+    startConversion(ReadState::PERIODIC_WAITING);
   });
 
   _eventBus.subscribe(EventType::APP_MQTT_CLIENT_DISCONNECTED, [this](EventType, const void*) {
@@ -25,33 +25,114 @@ DS18B20Handler::DS18B20Handler(EventBus& bus, ManageHa& ha, uint8_t pin, uint32_
 // AppHandler
 // ─────────────────────────────────────────────
 void DS18B20Handler::begin() {
+  _sleep.registerParticipant("ds18b20", 1, *this);
   _sensors.begin();
   _sensors.setResolution(DS18B20Config::RESOLUTION);
+  _sensors.setWaitForConversion(false);
+
+  switch (DS18B20Config::RESOLUTION) {
+    case 9:  _conversionTime = 94; break;
+    case 10: _conversionTime = 188; break;
+    case 11: _conversionTime = 375; break;
+    case 12: _conversionTime = 750; break;
+  }
+
   scanBus();
-  publishDiscovery();   // register entities with ManageHa once at startup
-                          // ManageHa publishes discovery on every MQTT connect
+  publishDiscovery();
 }
 
 void DS18B20Handler::loop() {
   if (!_mqttReady) return;
 
   uint32_t now = millis();
-  if (_lastRead != 0 && now - _lastRead < _interval) return;
-  _lastRead = now;
 
-  readAndPublish();
+  switch (_state) {
+    case ReadState::IDLE:
+      if (_lastRead == 0 || now - _lastRead >= _interval) {
+        startConversion(ReadState::PERIODIC_WAITING);
+      }
+      break;
+
+    case ReadState::PERIODIC_WAITING:
+    case ReadState::SLEEP_WAITING:
+      if (now - _conversionStart >= _conversionTime) {
+        finishConversion();
+      }
+      break;
+  }
 }
 
 // ─────────────────────────────────────────────
-// ISleepable
+// Sleep handling
 // ─────────────────────────────────────────────
 void DS18B20Handler::onSleep() {
-  olog.info(TAG, "Sleep — publishing final readings");
-  readAndPublish();
+  olog.info(TAG, "Sleep — forcing final async read");
+
+  if (_found.empty() || !_mqttReady) {
+    _state = ReadState::IDLE;
+    return;
+  }
+
+  startConversion(ReadState::SLEEP_WAITING);
+}
+
+bool DS18B20Handler::isSleepDone() const {
+  return _state != ReadState::SLEEP_WAITING;
 }
 
 // ─────────────────────────────────────────────
-// Private
+// Async state machine
+// ─────────────────────────────────────────────
+void DS18B20Handler::startConversion(ReadState nextState) {
+  if (_found.empty()) {
+    _state = ReadState::IDLE;
+    return;
+  }
+
+  _lastRead = millis();
+  _conversionStart = millis();
+  _state = nextState;
+
+  olog.debug(TAG,
+             "Starting async temperature conversion (%s)",
+             nextState == ReadState::SLEEP_WAITING ? "sleep" : "periodic");
+
+  _sensors.requestTemperatures();
+}
+
+void DS18B20Handler::finishConversion() {
+  JsonDocument doc;
+  bool anyValid = false;
+
+  for (const auto& sensor : _found) {
+    float temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
+
+    if (!isValidReading(temp)) {
+      String msg = "Bad reading from " + sensor.shortId;
+      AppError err{ TAG, msg.c_str() };
+      olog.warn(TAG, "Skipping %s — bad reading (%.1f)", sensor.shortId.c_str(), temp);
+      _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
+      continue;
+    }
+
+    float rounded = roundf(temp * 100.0f) / 100.0f;
+    doc[sensor.fullId] = rounded;
+    anyValid = true;
+
+    olog.info(TAG, "%s → %.2f%s", sensor.shortId.c_str(), rounded, DS18B20Config::USE_CELSIUS ? "°C" : "°F");
+  }
+
+  if (anyValid) {
+    _ha.publishJson("temperatures", doc, false);
+  } else {
+    olog.warn(TAG, "No valid readings — skipping publish");
+  }
+
+  _state = ReadState::IDLE;
+}
+
+// ─────────────────────────────────────────────
+// Bus scan, discovery, helpers
 // ─────────────────────────────────────────────
 void DS18B20Handler::scanBus() {
   _found.clear();
@@ -75,44 +156,9 @@ void DS18B20Handler::scanBus() {
   }
 }
 
-void DS18B20Handler::readAndPublish() {
-  if (_found.empty() || !_mqttReady) return;
-
-  _sensors.requestTemperatures();  // blocking ~750ms at 12-bit
-
-  JsonDocument doc;
-  bool anyValid = false;
-
-  for (const auto& sensor : _found) {
-    float temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
-
-    if (!isValidReading(temp)) {
-      String msg = "Bad reading from " + sensor.shortId;
-      AppError err{ TAG, msg.c_str() };
-      olog.warn(TAG, "Skipping %s — bad reading (%.1f)", sensor.shortId.c_str(), temp);
-      _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
-      continue;
-    }
-
-    float rounded = roundf(temp * 100.0f) / 100.0f;
-    doc[sensor.fullId] = rounded;
-    anyValid = true;
-
-    olog.info(TAG, "%s → %.2f%s", sensor.shortId.c_str(), rounded, DS18B20Config::USE_CELSIUS ? "°C" : "°F");
-  }
-
-  if (!anyValid) {
-    olog.warn(TAG, "No valid readings — skipping publish");
-    return;
-  }
-
-  _ha.publishJson("temperatures", doc, false);
-}
-
 void DS18B20Handler::publishDiscovery() {
   if (_found.empty()) return;
 
-    // Get resolved base topic from ManageHa
   String stateTopic = StringUtils::joinTopic(_ha.getBaseTopic(), "temperatures");
 
   for (const auto& sensor : _found) {
@@ -134,8 +180,6 @@ void DS18B20Handler::publishDiscovery() {
 
 String DS18B20Handler::addressToShortId(const DeviceAddress& addr) const {
   char buf[7];
-  // Use last 3 bytes which are usually unique, and skip family code (first byte) which is always 0x28 for DS18B20
-  // The last byte is the CRC
   snprintf(buf, sizeof(buf), "%02x%02x%02x", addr[1], addr[2], addr[3]);
   return String(buf);
 }
