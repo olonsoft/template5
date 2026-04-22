@@ -6,14 +6,10 @@
 
 const char* const TAG = "DS18B20";
 
-// ─────────────────────────────────────────────
-// Constructor
-// ─────────────────────────────────────────────
 DS18B20Handler::DS18B20Handler(EventBus& bus, ManageHa& ha, ManageSleep& sleep, uint8_t pin, uint32_t interval)
     : _eventBus(bus), _ha(ha), _sleep(sleep), _oneWire(pin), _sensors(&_oneWire), _interval(interval) {
   _eventBus.subscribe(EventType::APP_MQTT_CLIENT_CONNECTED, [this](EventType, const void*) {
     _mqttReady = true;
-    startConversion(ReadState::PERIODIC_WAITING);
   });
 
   _eventBus.subscribe(EventType::APP_MQTT_CLIENT_DISCONNECTED, [this](EventType, const void*) {
@@ -21,9 +17,6 @@ DS18B20Handler::DS18B20Handler(EventBus& bus, ManageHa& ha, ManageSleep& sleep, 
   });
 }
 
-// ─────────────────────────────────────────────
-// AppHandler
-// ─────────────────────────────────────────────
 void DS18B20Handler::begin() {
   _sleep.registerParticipant("ds18b20", 1, *this);
   _sensors.begin();
@@ -46,9 +39,13 @@ void DS18B20Handler::loop() {
 
   uint32_t now = millis();
 
+    // Do not start new periodic reads once sleep is requested
+  if (_sleepRequested && _state == ReadState::IDLE) return;
+
   switch (_state) {
     case ReadState::IDLE:
-      if (_lastRead == 0 || now - _lastRead >= _interval) {
+      if (!_sleepRequested && (_lastRead == 0 || now - _lastRead >= _interval)) {
+        _lastRead = now;
         startConversion(ReadState::PERIODIC_WAITING);
       }
       break;
@@ -62,58 +59,66 @@ void DS18B20Handler::loop() {
   }
 }
 
-// ─────────────────────────────────────────────
-// Sleep handling
-// ─────────────────────────────────────────────
 void DS18B20Handler::onSleep() {
-  olog.info(TAG, "Sleep — forcing final async read");
+  _sleepRequested = true;
+
+  uint32_t now = millis();
+
+    // If a periodic read is already in progress, wait for it
+  if (_state == ReadState::PERIODIC_WAITING) {
+    olog.info(TAG, "Sleep — waiting for ongoing read to finish");
+    return;
+  }
+
+    // If last read is fresh, skip final read
+  if (_state == ReadState::IDLE && isRecent(now)) {
+    olog.debug(TAG, "Sleep — last reading is fresh, skipping final read");
+    return;
+  }
 
   if (_found.empty() || !_mqttReady) {
     _state = ReadState::IDLE;
     return;
   }
 
+  olog.info(TAG, "Sleep — forcing final async read");
   startConversion(ReadState::SLEEP_WAITING);
 }
 
 bool DS18B20Handler::isSleepDone() const {
-  return _state != ReadState::SLEEP_WAITING;
+  return _state == ReadState::IDLE;
 }
 
-// ─────────────────────────────────────────────
-// Async state machine
-// ─────────────────────────────────────────────
+bool DS18B20Handler::isRecent(uint32_t now) const {
+  return _lastRead != 0 && (now - _lastRead) < 2000;
+}
+
 void DS18B20Handler::startConversion(ReadState nextState) {
   if (_found.empty()) {
     _state = ReadState::IDLE;
     return;
   }
 
-  _lastRead = millis();
-  _conversionStart = millis();
   _state = nextState;
+  _conversionStart = millis();
 
   olog.debug(TAG,
-             "Starting async temperature conversion (%s)",
+             "Starting async broadcast conversion (%s)",
              nextState == ReadState::SLEEP_WAITING ? "sleep" : "periodic");
 
   _sensors.requestTemperatures();
 }
 
 void DS18B20Handler::finishConversion() {
+  bool isPeriodic = (_state == ReadState::PERIODIC_WAITING);
+
   JsonDocument doc;
   bool anyValid = false;
 
   for (const auto& sensor : _found) {
     float temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
 
-    if (!isValidReading(temp)) {
-      String msg = "Bad reading from " + sensor.shortId;
-      AppError err{ TAG, msg.c_str() };
-      olog.warn(TAG, "Skipping %s — bad reading (%.1f)", sensor.shortId.c_str(), temp);
-      _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
-      continue;
-    }
+    if (!isValidReading(temp)) continue;
 
     float rounded = roundf(temp * 100.0f) / 100.0f;
     doc[sensor.fullId] = rounded;
@@ -122,18 +127,23 @@ void DS18B20Handler::finishConversion() {
     olog.info(TAG, "%s → %.2f%s", sensor.shortId.c_str(), rounded, DS18B20Config::USE_CELSIUS ? "°C" : "°F");
   }
 
-  if (anyValid) {
-    _ha.publishJson("temperatures", doc, false);
-  } else {
-    olog.warn(TAG, "No valid readings — skipping publish");
-  }
-
   _state = ReadState::IDLE;
+  _lastRead = millis();
+
+  if (anyValid)
+    _ha.publishJson("temperatures", doc, false);
+  else
+    olog.warn(TAG, "No valid readings — skipping publish");
+
+    // DS18B20-triggered sleep
+  if (isPeriodic && _sleepAfterRead && anyValid && !_sleepRequested) {
+    olog.info(TAG, "Read complete — triggering sleep");
+    _sleepRequested = true;
+    SleepRequest req(_sleepDurationUs);
+    _eventBus.publish(EventType::APP_SYSTEM_SLEEP_PREPARING, &req);
+  }
 }
 
-// ─────────────────────────────────────────────
-// Bus scan, discovery, helpers
-// ─────────────────────────────────────────────
 void DS18B20Handler::scanBus() {
   _found.clear();
 
@@ -173,8 +183,6 @@ void DS18B20Handler::publishDiscovery() {
                       DS18B20Config::USE_CELSIUS ? "°C" : "°F",
                       "temperature",
                       "mdi:thermometer");
-
-    olog.info(TAG, "Registered HA entity: %s → %s", id.c_str(), stateTopic.c_str());
   }
 }
 

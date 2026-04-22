@@ -36,4 +36,6 @@ void DeviceApp::begin() {
   addHandler(_sleepableSensor);
   addHandler(_tempSensors);
   App::begin();
+  // Wake, read all sensors, publish, sleep 1 minutes
+  _tempSensors.setSleepAfterRead(DeviceDefaults::SLEEP_DURATION_US);
 }
