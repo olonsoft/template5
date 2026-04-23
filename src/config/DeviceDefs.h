@@ -24,8 +24,7 @@ namespace DeviceDefaults {
   constexpr uint8_t RELAY_PIN = 14;
   constexpr uint8_t SENSOR_PIN = 12;
   constexpr uint8_t ONE_WIRE_PIN = 13;
-  constexpr uint64_t SLEEP_DURATION_US =
-    10ULL * 60ULL * 1000000ULL; // 10 minutes — actual sleep time may be slightly longer due to wakeup overhead
+  constexpr uint32_t SLEEP_DURATION_S = 60; // Seconds — actual sleep time may be slightly longer due to wakeup overhead
 
 } // namespace DeviceDefaults
 

@@ -42,6 +42,7 @@ void DeviceApp::begin() {
 
   // when temperature read is complete (periodic or sleep-triggered), we can decide to go to sleep immediately
   _ds18b20.setReadCompleteCallback([this](bool success, size_t sensorCount) {
-    _eventBus.publish(EventType::APP_SYSTEM_SLEEP_PREPARING, nullptr);
+    SleepRequest req(DeviceDefaults::SLEEP_DURATION_S);
+    _eventBus.publish(EventType::APP_SYSTEM_SLEEP_PREPARING, &req);
   });
 }
