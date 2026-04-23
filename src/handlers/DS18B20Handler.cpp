@@ -60,7 +60,6 @@ void DS18B20Handler::loop() {
 }
 
 void DS18B20Handler::onSleep() {
-
   uint32_t now = millis();
 
     // If a periodic read is already in progress, wait for it
@@ -105,6 +104,8 @@ void DS18B20Handler::startConversion(ReadState nextState) {
              "Starting async broadcast conversion (%s)",
              nextState == ReadState::SLEEP_WAITING ? "sleep" : "periodic");
 
+  delay(10);  // if I use asyncmqtt, it is critical to let network operations settle
+  yield();
   _sensors.requestTemperatures();
 }
 
@@ -140,11 +141,9 @@ void DS18B20Handler::finishConversion() {
   _state = ReadState::IDLE;
 
   if (_readCompleteCallback) {
-      _readCompleteCallback(anyValid, _found.size());
+    _readCompleteCallback(anyValid, _found.size());
   }
-
 }
-
 
 void DS18B20Handler::scanBus() {
   _found.clear();

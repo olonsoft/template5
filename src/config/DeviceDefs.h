@@ -10,10 +10,10 @@ namespace DeviceDefaults {
   constexpr const char* APP_AUTHOR = "Dimitris";
 
 // Overrides
-  constexpr const char* HOSTNAME = "esp-temp-$mac";
+  constexpr const char* HOSTNAME = "boiler-temp-$mac";
   constexpr const char* WIFI_AP_PASSWORD = "12345678";
-  constexpr const char* MQTT_CLIENT_ID = "$mac";
-  constexpr const char* BASE_TOPIC = "olon/device-$mac";
+  constexpr const char* MQTT_CLIENT_ID = "boiler-temp-$mac";
+  constexpr const char* BASE_TOPIC = "olon/home";
   constexpr const char* OTA_URL = "http://example.com/temp-sensor.bin";
   constexpr const char* TIME_SERVER = "time.ics.forth.gr";
   constexpr const char* TIME_ZONE = "EET-2EEDT,M3.5.0/3,M10.5.0/4"; // Europe/Athens
