@@ -99,13 +99,9 @@ void DS18B20Handler::startConversion(ReadState nextState) {
 
   _state = nextState;
   _conversionStart = millis();
-
   olog.debug(TAG,
              "Starting async broadcast conversion (%s)",
              nextState == ReadState::SLEEP_WAITING ? "sleep" : "periodic");
-
-  delay(10);  // if I use asyncmqtt, it is critical to let network operations settle
-  yield();
   _sensors.requestTemperatures();
 }
 
@@ -114,15 +110,48 @@ void DS18B20Handler::finishConversion() {
   bool anyValid = false;
 
   for (const auto& sensor : _found) {
-    float temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
+    float temp = DS18B20Config::USE_CELSIUS ? NAN : NAN;
+    bool readSuccess = false;
+    int retries = 0;
+    const int MAX_RETRIES = 3;
 
-    if (!isValidReading(temp)) {
-      char msg[32];
-      snprintf(msg, sizeof(msg), "Bad reading from %s", sensor.shortId.c_str());
+    // Retry up to 3 times to get a valid reading
+    for (retries = 0; retries < MAX_RETRIES; retries++) {
+      temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
+
+      if (isValidReading(temp)) {
+        readSuccess = true;
+        break;
+      }
+
+      // Report retry attempt (if not the last attempt)
+      if (retries < MAX_RETRIES - 1) {
+        olog
+          .warn(TAG, "Retry %d/%d for %s - bad reading (%.1f)", retries + 1, MAX_RETRIES, sensor.shortId.c_str(), temp);
+      }
+    }
+
+    if (!readSuccess) {
+      char msg[64];
+      snprintf(msg, sizeof(msg), "Failed after %d retries from %s", MAX_RETRIES, sensor.shortId.c_str());
       AppError err{ TAG, msg };
-      olog.warn(TAG, "Skipping %s — bad reading (%.1f)", sensor.shortId.c_str(), temp);
+      olog.warn(TAG,
+                "Skipping %s — all %d retries failed, last reading (%.1f)",
+                sensor.shortId.c_str(),
+                MAX_RETRIES,
+                temp);
       _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
       continue;
+    }
+
+    // Report successful read with retry info if retries were needed
+    if (retries > 0) {
+      olog.info(TAG,
+                "%s succeeded after %d retries (%.2f%s)",
+                sensor.shortId.c_str(),
+                retries,
+                temp,
+                DS18B20Config::USE_CELSIUS ? "°C" : "°F");
     }
 
     float rounded = roundf(temp * 100.0f) / 100.0f;
@@ -133,6 +162,7 @@ void DS18B20Handler::finishConversion() {
   }
 
   if (anyValid) {
+    _eventBus.publish(EventType::APP_SENSOR_NEW_DATA, nullptr);  // Notify new sensor data event
     _ha.publishJson("temperatures", doc, false);
   } else {
     olog.warn(TAG, "No valid readings — skipping publish");

@@ -65,7 +65,7 @@ class DS18B20Handler : public AppHandler, public ISleepable {
   std::vector<Sensor> _found;
 
   ReadCompleteCallback _readCompleteCallback = nullptr;
-    uint32_t _interval;
+  uint32_t _interval;
   uint32_t _lastRead = 0;
   bool _mqttReady = false;
 
