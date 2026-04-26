@@ -112,8 +112,8 @@ void DS18B20Handler::finishConversion() {
   for (const auto& sensor : _found) {
     float temp = DS18B20Config::USE_CELSIUS ? NAN : NAN;
     bool readSuccess = false;
-    int retries = 0;
-    const int MAX_RETRIES = 3;
+    uint8_t retries = 0;
+    const uint8_t MAX_RETRIES = 3;
 
     // Retry up to 3 times to get a valid reading
     for (retries = 0; retries < MAX_RETRIES; retries++) {
