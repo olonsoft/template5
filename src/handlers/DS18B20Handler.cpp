@@ -111,46 +111,30 @@ void DS18B20Handler::finishConversion() {
 
   for (const auto& sensor : _found) {
     float temp = DS18B20Config::USE_CELSIUS ? NAN : NAN;
-    bool readSuccess = false;
-    uint8_t retries = 0;
-    const uint8_t MAX_RETRIES = 3;
+    uint8_t retry = 0;
+    const uint8_t maxRetries = 3;
 
     // Retry up to 3 times to get a valid reading
-    for (retries = 0; retries < MAX_RETRIES; retries++) {
-      temp = DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address) : _sensors.getTempF(sensor.address);
-
-      if (isValidReading(temp)) {
-        readSuccess = true;
-        break;
-      }
-
-      // Report retry attempt (if not the last attempt)
-      if (retries < MAX_RETRIES - 1) {
-        olog
-          .warn(TAG, "Retry %d/%d for %s - bad reading (%.1f)", retries + 1, MAX_RETRIES, sensor.shortId.c_str(), temp);
-      }
+    while (retry < maxRetries && !isValidReading(temp = (DS18B20Config::USE_CELSIUS ?
+                                               _sensors.getTempC(sensor.address) :
+                                               _sensors.getTempF(sensor.address)))) {
+      retry++;
+      olog.warn(TAG, "Retry %d/3 for %s - bad reading (%.1f)", retry, sensor.shortId.c_str(), temp);
     }
 
-    if (!readSuccess) {
+    if (retry == maxRetries) { // All retries exhausted and still invalid
       char msg[64];
-      snprintf(msg, sizeof(msg), "Failed after %d retries from %s", MAX_RETRIES, sensor.shortId.c_str());
+      snprintf(msg, sizeof(msg), "Failed after %d retries from %s", maxRetries, sensor.shortId.c_str());
       AppError err{ TAG, msg };
-      olog.warn(TAG,
-                "Skipping %s — all %d retries failed, last reading (%.1f)",
-                sensor.shortId.c_str(),
-                MAX_RETRIES,
-                temp);
+      olog.warn(TAG, "Skipping %s — all %d retries failed, last reading (%.1f)", sensor.shortId.c_str(), maxRetries, temp);
       _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
       continue;
     }
 
     // Report successful read with retry info if retries were needed
-    if (retries > 0) {
-      olog.info(TAG,
-                "%s succeeded after %d retries (%.2f%s)",
-                sensor.shortId.c_str(),
-                retries,
-                temp,
+    if (retry > 0) {
+      olog.warn(TAG, "%s succeeded after %d retries (%.2f%s)",
+                sensor.shortId.c_str(), 3 - retry, temp,
                 DS18B20Config::USE_CELSIUS ? "°C" : "°F");
     }
 
@@ -162,7 +146,7 @@ void DS18B20Handler::finishConversion() {
   }
 
   if (anyValid) {
-    _eventBus.publish(EventType::APP_SENSOR_NEW_DATA, nullptr);  // Notify new sensor data event
+    _eventBus.publish(EventType::APP_SENSOR_NEW_DATA, nullptr);
     _ha.publishJson("temperatures", doc, false);
   } else {
     olog.warn(TAG, "No valid readings — skipping publish");
@@ -189,11 +173,18 @@ void DS18B20Handler::scanBus() {
 
   for (uint8_t i = 0; i < count; i++) {
     Sensor s;
+
+    uint8_t retry = 3;
+
+    while (retry-- && !_sensors.getAddress(s.address, i));
+
+    if (!retry) continue; // all retries exhausted
+
     if (!_sensors.getAddress(s.address, i)) continue;
     s.shortId = addressToShortId(s.address);
     s.fullId = addressToFullId(s.address);
     _found.push_back(s);
-    olog.info(TAG, "  [%d] %s", i, s.fullId.c_str());
+    olog.info(TAG, "[%d] %s", i, s.fullId.c_str());
   }
 }
 
