@@ -15,6 +15,7 @@ const FrameworkConfig deviceConfig = {
   .timeServer = DeviceDefaults::TIME_SERVER,
   .timeZone = DeviceDefaults::TIME_ZONE,
   .otaUrl = DeviceDefaults::OTA_URL,
+  .otaKey = DeviceDefaults::OTA_KEY,
   .configVersionBase = Defaults::CONFIG_VERSION_BASE,
   .configVersionDevice = DeviceDefaults::CONFIG_VERSION_DEVICE,
 };

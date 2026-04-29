@@ -115,9 +115,9 @@ void DS18B20Handler::finishConversion() {
     const uint8_t maxRetries = 3;
 
     // Retry up to 3 times to get a valid reading
-    while (retry < maxRetries && !isValidReading(temp = (DS18B20Config::USE_CELSIUS ?
-                                               _sensors.getTempC(sensor.address) :
-                                               _sensors.getTempF(sensor.address)))) {
+    while (retry < maxRetries &&
+           !isValidReading(temp = (DS18B20Config::USE_CELSIUS ? _sensors.getTempC(sensor.address)
+                                                              : _sensors.getTempF(sensor.address)))) {
       retry++;
       olog.warn(TAG, "Retry %d/3 for %s - bad reading (%.1f)", retry, sensor.shortId.c_str(), temp);
     }
@@ -126,15 +126,22 @@ void DS18B20Handler::finishConversion() {
       char msg[64];
       snprintf(msg, sizeof(msg), "Failed after %d retries from %s", maxRetries, sensor.shortId.c_str());
       AppError err{ TAG, msg };
-      olog.warn(TAG, "Skipping %s — all %d retries failed, last reading (%.1f)", sensor.shortId.c_str(), maxRetries, temp);
+      olog.warn(TAG,
+                "Skipping %s — all %d retries failed, last reading (%.1f)",
+                sensor.shortId.c_str(),
+                maxRetries,
+                temp);
       _eventBus.publish(EventType::APP_ERROR_RECOVERABLE, &err);
       continue;
     }
 
     // Report successful read with retry info if retries were needed
     if (retry > 0) {
-      olog.warn(TAG, "%s succeeded after %d retries (%.2f%s)",
-                sensor.shortId.c_str(), 3 - retry, temp,
+      olog.warn(TAG,
+                "%s succeeded after %d retries (%.2f%s)",
+                sensor.shortId.c_str(),
+                3 - retry,
+                temp,
                 DS18B20Config::USE_CELSIUS ? "°C" : "°F");
     }
 
@@ -176,7 +183,8 @@ void DS18B20Handler::scanBus() {
 
     uint8_t retry = 3;
 
-    while (retry-- && !_sensors.getAddress(s.address, i));
+    while (retry-- && !_sensors.getAddress(s.address, i))
+      ;
 
     if (!retry) continue; // all retries exhausted
 
