@@ -5,31 +5,31 @@
 
 namespace DeviceDefaults {
   // Device identity
-  constexpr const char* APP_NAME = "Boiler temperature";
-  constexpr const char* APP_VERSION = "1.0.3";
-  constexpr const char* APP_AUTHOR = "Dimitris";
+constexpr const char* APP_NAME    = "Boiler temperature";
+constexpr const char* APP_VERSION = "1.0.4";
+constexpr const char* APP_AUTHOR  = "Dimitris";
 
   // Overrides
-  constexpr const char* HOSTNAME = "boiler-temp-$mac";
-  constexpr const char* WIFI_AP_PASSWORD = "12345678";
-  constexpr const char* MQTT_CLIENT_ID = "boiler-temp-$mac";
-  constexpr const char* BASE_TOPIC = "olon/home";
-  constexpr const char* OTA_URL = "http://example.com/update.php";
-  constexpr const char* OTA_KEY = "gMqIpMJt4wjzsLpwVcNEwvsWygav1aJC";
-  constexpr const char* TIME_SERVER = "time.ics.forth.gr";
-  constexpr const char* TIME_ZONE = "EET-2EEDT,M3.5.0/3,M10.5.0/4"; // Europe/Athens
-  constexpr uint8_t CONFIG_VERSION_DEVICE = 3;
+constexpr const char* HOSTNAME          = "boiler-temp-$mac";
+constexpr const char* WIFI_AP_PASSWORD  = "12345678";
+constexpr const char* MQTT_CLIENT_ID    = "boiler-temp-$mac";
+constexpr const char* BASE_TOPIC        = "olon/home";
+constexpr const char* OTA_URL           = "http://example.com/update.php";
+constexpr const char* OTA_KEY           = "gMqIpMJt4wjzsLpwVcNEwvsWygav1aJC";
+constexpr const char* NTP_SERVER        = "time.ics.forth.gr";
+constexpr const char* POSIX_TIME_ZONE   = "EET-2EEDT,M3.5.0/3,M10.5.0/4"; // Europe/Athens
+constexpr uint8_t CONFIG_VERSION_DEVICE = 3;
 
   // Device specific
-  constexpr uint8_t RELAY_PIN = 14;
-  constexpr uint8_t SENSOR_PIN = 12;
+constexpr uint8_t RELAY_PIN  = 14;
+constexpr uint8_t SENSOR_PIN = 12;
 
   // DS18B20 specific
-  constexpr uint32_t SENSOR_INTERVAL = 60000;
-  constexpr uint8_t ONE_WIRE_PIN = 13;
-  constexpr uint32_t SLEEP_DURATION_S = 60; // Seconds — actual sleep time may be slightly longer due to wakeup overhead
+constexpr uint32_t SENSOR_INTERVAL  = 60000;
+constexpr uint8_t ONE_WIRE_PIN      = 13;
+constexpr uint32_t SLEEP_DURATION_S = 60;  // Seconds — actual sleep time may be slightly longer due to wakeup overhead
 
-} // namespace DeviceDefaults
+}  // namespace DeviceDefaults
 
 // example of custom Device event constants
 constexpr EventType DEVICE_SENSOR_DATA_READY = EventType::APP_CUSTOM_EVENT_1;

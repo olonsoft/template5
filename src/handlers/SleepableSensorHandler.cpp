@@ -1,6 +1,6 @@
 #include "SleepableSensorHandler.h"
 
-#include <core/Logger.h>
+#include <logger/Logger.h>
 
 #include "../config/DeviceDefs.h"
 

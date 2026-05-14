@@ -1,11 +1,16 @@
 ---
 BasedOnStyle: Google
+AccessModifierOffset: -2
 AlignArrayOfStructures: Left
+AlignConsecutiveAssignments:
+  Enabled: true
+  PadOperators: true
 AlignConsecutiveMacros:
   Enabled: true
   PadOperators: true
 AlignConsecutiveShortCaseStatements:
   Enabled: true
+AlignEscapedNewlines: Left
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AlignTrailingComments:
@@ -19,12 +24,13 @@ AllowShortLambdasOnASingleLine: Empty
 AllowShortLoopsOnASingleLine: false
 BinPackArguments: false
 ColumnLimit: 120
-ContinuationIndentWidth: 2
+ContinuationIndentWidth: 4
 Cpp11BracedListStyle: false
 IndentCaseLabels: true
 IndentPPDirectives: BeforeHash
+IndentWidth: 4
 LambdaBodyIndentation: OuterScope
-NamespaceIndentation: All
+NamespaceIndentation: None
 ReflowComments: Never
-SpacesBeforeTrailingComments: 1
-TabWidth: 2
+SpacesBeforeTrailingComments: 2
+TabWidth: 4

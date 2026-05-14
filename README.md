@@ -249,7 +249,7 @@ classDiagram
         -String _mqttClientId
         -String _baseTopic
         -String _haTopic
-        -String _timeServer
+        -String _ntpServer
         -String _timeLocation
         -uint8_t _version
         -bool _batchMode
@@ -271,7 +271,7 @@ classDiagram
         +setMqttClientId(v:String)
         +setBaseTopic(v:String)
         +setHaTopic(v:String)
-        +setTimeServer(v:String)
+        +setntpServer(v:String)
         +setTimeLocation(v:String)
     }
 
@@ -463,7 +463,7 @@ private:
 
 ```cpp
 #include "ManageSensors.h"
-#include <core/Logger.h>
+#include <logger/Logger.h>
 
 ManageSensors::ManageSensors(EventBus& bus, Config& cfg)
     : eventBus(bus), config(cfg) {}
