@@ -5,26 +5,26 @@
 
 namespace DeviceDefaults {
   // Device identity
-constexpr const char* APP_NAME    = "Boiler temperature";
-constexpr const char* APP_VERSION = "1.0.4";
-constexpr const char* APP_AUTHOR  = "Dimitris";
+constexpr char APP_NAME[CONFIG_APP_NAME_LEN]       = "Boiler temperature";
+constexpr char APP_VERSION[CONFIG_APP_VERSION_LEN] = "1.1.0";
+constexpr char APP_AUTHOR[CONFIG_APP_AUTHOR_LEN]   = "Dimitris";
 
   // Overrides
-constexpr const char* HOSTNAME          = "boiler-temp-$mac";
-constexpr const char* WIFI_AP_PASSWORD  = "12345678";
-constexpr const char* MQTT_CLIENT_ID    = "boiler-temp-$mac";
-constexpr const char* BASE_TOPIC        = "olon/home";
-constexpr const char* OTA_URL           = "http://example.com/update.php";
-constexpr const char* OTA_KEY           = "gMqIpMJt4wjzsLpwVcNEwvsWygav1aJC";
-constexpr const char* NTP_SERVER        = "time.ics.forth.gr";
-constexpr const char* POSIX_TIME_ZONE   = "EET-2EEDT,M3.5.0/3,M10.5.0/4"; // Europe/Athens
-constexpr uint8_t CONFIG_VERSION_DEVICE = 3;
+constexpr char HOSTNAME[CONFIG_HOSTNAME_LEN]              = "boiler-temp-$mac";
+constexpr char WIFI_AP_PASSWORD[CONFIG_AP_PASSWORD_LEN]   = "12345678";
+constexpr char MQTT_CLIENT_ID[CONFIG_MQTT_CLIENT_ID_LEN]  = "boiler-temp-$mac";
+constexpr char BASE_TOPIC[CONFIG_BASE_TOPIC_LEN]          = "olon/home";
+constexpr char OTA_URL[CONFIG_OTA_URL_LEN]                = "http://example.com/update.php";
+constexpr char OTA_KEY[CONFIG_OTA_KEY_LEN]                = "gMqIpMJt4wjzsLpwVcNEwvsWygav1aJC";
+constexpr char NTP_SERVER[CONFIG_NTP_SERVER_LEN]          = "time.ics.forth.gr";
+constexpr char POSIX_TIME_ZONE[CONFIG_POSIX_TIMEZONE_LEN] = "EET-2EEDT,M3.5.0/3,M10.5.0/4";  // Europe/Athens
+constexpr uint8_t CONFIG_VERSION_DEVICE                   = 3;
 
-  // Device specific
+// Device specific
 constexpr uint8_t RELAY_PIN  = 14;
 constexpr uint8_t SENSOR_PIN = 12;
 
-  // DS18B20 specific
+// DS18B20 specific
 constexpr uint32_t SENSOR_INTERVAL  = 60000;
 constexpr uint8_t ONE_WIRE_PIN      = 13;
 constexpr uint32_t SLEEP_DURATION_S = 60;  // Seconds — actual sleep time may be slightly longer due to wakeup overhead
