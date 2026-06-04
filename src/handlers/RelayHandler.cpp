@@ -39,6 +39,10 @@ void RelayHandler::loop() {
 void RelayHandler::setRelay(bool on) {
     _state = on;
     digitalWrite(_pin, on ? HIGH : LOW);
-    _ha.publishState("relay", on ? "ON" : "OFF");
+
     olog.info(TAG, "Relay → %s", on ? "ON" : "OFF");
+
+    if (_ha.connected()) {
+        _ha.publishState("relay", on ? "ON" : "OFF");
+    }
 }
