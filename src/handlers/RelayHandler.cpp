@@ -8,6 +8,7 @@ const char* const TAG = "Relay";
 RelayHandler::RelayHandler(EventBus& bus, ManageHa& ha, uint8_t pin) : _eventBus(bus), _ha(ha), _pin(pin) {}
 
 void RelayHandler::begin() {
+    olog.info(TAG, "Starting Relay handler on pin %d", _pin);
     pinMode(_pin, OUTPUT);
     setRelay(false);
 
@@ -29,7 +30,7 @@ void RelayHandler::begin() {
         _ha.publishState("relay", _state ? "ON" : "OFF");
     });
 
-    olog.info(TAG, "Relay handler started on pin %d", _pin);
+
 }
 
 void RelayHandler::loop() {
